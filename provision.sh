@@ -75,3 +75,15 @@ if grep 'ENABLED=0' /etc/default/milter-greylist; then
   sed -i -e 's/ENABLED=0/ENABLED=1\nSOCKET="inet:11125@[127.0.0.1]"/' /etc/default/milter-greylist
   /etc/init.d/milter-greylist start
 fi
+if grep '# SOCKET_GROUP=postfix' /etc/default/milter-manager; then
+  sed -i -e 's/# SOCKET_GROUP=postfix/SOCKET_GROUP=postfix/' -e 's;# CONNECTION_SPEC=unix:/var/spool/postfix/milter-manager/milter-manager\.sock;CONNECTION_SPEC=unix:/var/spool/postfix/milter-manager/milter-manager.sock;' /etc/default/milter-manager
+  adduser milter-manager postfix
+  /etc/init.d/milter-manager restart
+fi
+if ! grep -q milter /etc/postfix/main.cf; then
+  postconf -e 'milter_protocol = 6'
+  postconf -e 'milter_default_action = accept'
+  postconf -e 'milter_mail_macros = {auth_author} {auth_type} {auth_authen}'
+  postconf -e 'smtpd_milters = unix:/milter-manager/milter-manager.sock'
+  /etc/init.d/postfix reload
+fi
